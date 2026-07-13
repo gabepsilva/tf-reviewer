@@ -1,11 +1,14 @@
 output "demo_bucket_name" {
-  value = aws_s3_bucket.demo.bucket
+  description = "Name of the demo S3 bucket"
+  value       = aws_s3_bucket.demo.bucket
 }
 
 output "demo_bucket_arn" {
-  value = aws_s3_bucket.demo.arn
+  description = "ARN of the demo S3 bucket"
+  value       = aws_s3_bucket.demo.arn
 }
 
 output "demo_website_endpoint" {
-  value = aws_s3_bucket_website_configuration.demo.website_endpoint
+  description = "Website endpoint for the public demo S3 bucket"
+  value       = aws_s3_bucket_website_configuration.demo.website_endpoint
 }
