@@ -4,7 +4,7 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-variable "public_demo_bucket_name" {
+variable "public_bucket_name" {
   type        = string
-  description = "Name of the tf-reviewer public demo S3 bucket"
+  description = "Name of the tf-reviewer public S3 bucket"
 }
