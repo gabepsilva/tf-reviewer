@@ -11,7 +11,7 @@ terraform {
   backend "s3" {
     # Filled by -backend-config / backend.hcl (not committed with secrets).
     # Bucket is created out-of-band; see README note in comments.
-    key     = "demo/terraform.tfstate"
+    key     = "public-demo/terraform.tfstate"
     region  = "us-east-1"
     encrypt = true
   }

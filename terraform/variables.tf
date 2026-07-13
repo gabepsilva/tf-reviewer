@@ -1,10 +1,10 @@
 variable "aws_region" {
   type        = string
-  description = "AWS region for demo resources"
+  description = "AWS region for tf-reviewer resources"
   default     = "us-east-1"
 }
 
-variable "demo_bucket_name" {
+variable "public_demo_bucket_name" {
   type        = string
-  description = "Name of the demo S3 bucket to create"
+  description = "Name of the tf-reviewer public demo S3 bucket"
 }
