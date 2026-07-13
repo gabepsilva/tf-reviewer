@@ -1,32 +1,3 @@
-terraform {
-  required_version = ">= 1.5.0"
-
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-  }
-
-  backend "s3" {
-    # Filled by -backend-config / backend.hcl (not committed with secrets).
-    # Bucket is created out-of-band; see README note in comments.
-    key     = "demo/terraform.tfstate"
-    region  = "us-east-1"
-    encrypt = true
-  }
-}
-
-provider "aws" {
-  region = var.aws_region
-}
-
-variable "aws_region" {
-  type        = string
-  description = "AWS region for demo resources"
-  default     = "us-east-1"
-}
-
 variable "demo_bucket_name" {
   type        = string
   description = "Name of the demo S3 bucket to create"
