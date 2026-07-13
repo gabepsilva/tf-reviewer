@@ -39,10 +39,7 @@ jobs:
           bucket = "${{ vars.TF_STATE_BUCKET }}"
           region = "${{ vars.AWS_REGION || 'us-east-1' }}"
           EOF
-          cat > terraform.tfvars <<EOF
-          demo_bucket_name = "${{ vars.TF_DEMO_BUCKET }}"
-          aws_region       = "${{ vars.AWS_REGION || 'us-east-1' }}"
-          EOF
+          cp terraform.tfvars.example terraform.tfvars
 
       - name: Terraform init
         working-directory: terraform
