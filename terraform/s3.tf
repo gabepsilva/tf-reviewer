@@ -8,7 +8,7 @@ module "public_bucket" {
   tags = {
     Purpose = "public"
     Name    = "tf-reviewer-public"
-    Version = "1.0"
+    Version = "1.1"
   }
 }
 
