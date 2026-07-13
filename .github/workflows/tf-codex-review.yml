@@ -51,6 +51,7 @@ jobs:
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           prompt-file: .github/codex/prompts/tf-plan-review.md
+          model: gpt-5.4-mini
           sandbox: danger-full-access
           output-file: codex-output.md
 
