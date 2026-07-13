@@ -1,8 +1,3 @@
-variable "demo_bucket_name" {
-  type        = string
-  description = "Name of the demo S3 bucket to create"
-}
-
 resource "aws_s3_bucket" "demo" {
   bucket = var.demo_bucket_name
 
