@@ -3,6 +3,8 @@ name: Terraform Codex review
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+    paths:
+      - "terraform/**"
   workflow_dispatch:
 
 permissions:
