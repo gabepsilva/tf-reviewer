@@ -1,0 +1,5 @@
+# Copy to backend.hcl (gitignored) or pass via:
+#   terraform init -backend-config=backend.hcl
+#
+bucket = "tf-reviewer-tfstate-605252734125"
+region = "us-east-1"
