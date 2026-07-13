@@ -35,19 +35,79 @@ variable "demo_bucket_name" {
 resource "aws_s3_bucket" "demo" {
   bucket = var.demo_bucket_name
 
+  # AWS uses tags (equivalent of "labels" elsewhere).
   tags = {
     Project = "tf-reviewer"
     Purpose = "demo"
+    Version = "1.0"
   }
 }
 
+# Allow public ACLs/policies so the bucket can be world-readable and listable.
 resource "aws_s3_bucket_public_access_block" "demo" {
   bucket = aws_s3_bucket.demo.id
 
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
+  block_public_acls       = false
+  block_public_policy     = false
+  ignore_public_acls      = false
+  restrict_public_buckets = false
+}
+
+resource "aws_s3_bucket_ownership_controls" "demo" {
+  bucket = aws_s3_bucket.demo.id
+
+  rule {
+    object_ownership = "BucketOwnerPreferred"
+  }
+}
+
+resource "aws_s3_bucket_acl" "demo" {
+  depends_on = [
+    aws_s3_bucket_ownership_controls.demo,
+    aws_s3_bucket_public_access_block.demo,
+  ]
+
+  bucket = aws_s3_bucket.demo.id
+  acl    = "public-read"
+}
+
+# Public list + get so contents are browsable / crawlable.
+resource "aws_s3_bucket_policy" "demo" {
+  depends_on = [aws_s3_bucket_public_access_block.demo]
+
+  bucket = aws_s3_bucket.demo.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "PublicReadGetObject"
+        Effect    = "Allow"
+        Principal = "*"
+        Action    = ["s3:GetObject"]
+        Resource  = ["${aws_s3_bucket.demo.arn}/*"]
+      },
+      {
+        Sid       = "PublicListBucket"
+        Effect    = "Allow"
+        Principal = "*"
+        Action    = ["s3:ListBucket"]
+        Resource  = [aws_s3_bucket.demo.arn]
+      }
+    ]
+  })
+}
+
+# Website hosting makes the bucket indexable via HTTP (index document).
+resource "aws_s3_bucket_website_configuration" "demo" {
+  bucket = aws_s3_bucket.demo.id
+
+  index_document {
+    suffix = "index.html"
+  }
+
+  error_document {
+    key = "error.html"
+  }
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "demo" {
@@ -66,4 +126,8 @@ output "demo_bucket_name" {
 
 output "demo_bucket_arn" {
   value = aws_s3_bucket.demo.arn
+}
+
+output "demo_website_endpoint" {
+  value = aws_s3_bucket_website_configuration.demo.website_endpoint
 }
