@@ -1,3 +1,6 @@
 # Copy to terraform.tfvars (gitignored):
-public_bucket_name = "tf-reviewer-public-605252734125"
-aws_region         = "us-east-1"
+public_bucket_name  = "tf-reviewer-public-605252734125"
+private_bucket_name = "tf-reviewer-private-605252734125"
+project             = "tf-reviewer"
+billing_code        = "tf-reviewer-dev"
+aws_region          = "us-east-1"

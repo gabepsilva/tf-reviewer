@@ -9,7 +9,10 @@ terraform {
 
 resource "aws_s3_bucket" "this" {
   bucket = var.bucket_name
-  tags   = var.tags
+  tags = merge(var.tags, {
+    Project     = var.project
+    BillingCode = var.billing_code
+  })
 }
 
 # Allow public ACLs/policies so the bucket can be world-readable and listable.
