@@ -25,3 +25,25 @@ module "private_bucket" {
     Version = "1.0"
   }
 }
+
+# Intentionally hand-rolled (not the company module) — standards violation for demo review.
+resource "aws_s3_bucket" "extra_private" {
+  bucket = var.extra_private_bucket_name
+
+  tags = {
+    Project     = var.project
+    BillingCode = var.billing_code
+    Purpose     = "private"
+    Name        = "tf-reviewer-extra-private"
+    Version     = "1.0"
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "extra_private" {
+  bucket = aws_s3_bucket.extra_private.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
