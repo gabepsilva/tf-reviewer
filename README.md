@@ -29,6 +29,7 @@ On every PR that touches `terraform/**`, a agent runs `terraform plan`, checks t
 - **Best Practices**: Suggest improvements
 - **Cost Impact**: Estimates cost changes and provides optimization recommendations
 - **Security Analysis**: Comprehensive security assessments including IAM, encryption, and access control
+- **Environment detection**: This project does not have the ability to run *terraform plan* against a specific environment (PROD, UAT, Staging, QA, DEV, etc..).
 
 
 ## Limitations
@@ -138,16 +139,3 @@ terraform/
   modules/private_bucket/
 PRESENTATION.md   # video / demo walkthrough
 ```
-
-## Limits (PoC)
-
-- Small S3 demo — not a full multi-account org setup
-- Review assistant, not a sole merge gate; agent quality varies with prompt/model/permissions
-- Drift forensics need CloudTrail and sufficient AWS rights
-- Long-lived AWS keys in secrets; production hardening would use OIDC, required checks, and a gated apply job
-
-See [`PRESENTATION.md`](PRESENTATION.md) for a longer walkthrough and demo script.
-
-## License
-
-PoC / demonstration project. Use and adapt as you like for your own pipelines.
