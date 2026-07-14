@@ -138,16 +138,3 @@ terraform/
   modules/private_bucket/
 PRESENTATION.md   # video / demo walkthrough
 ```
-
-## Limits (PoC)
-
-- Small S3 demo — not a full multi-account org setup
-- Review assistant, not a sole merge gate; agent quality varies with prompt/model/permissions
-- Drift forensics need CloudTrail and sufficient AWS rights
-- Long-lived AWS keys in secrets; production hardening would use OIDC, required checks, and a gated apply job
-
-See [`PRESENTATION.md`](PRESENTATION.md) for a longer walkthrough and demo script.
-
-## License
-
-PoC / demonstration project. Use and adapt as you like for your own pipelines.
