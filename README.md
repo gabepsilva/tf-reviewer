@@ -29,6 +29,7 @@ On every PR that touches `terraform/**`, a agent runs `terraform plan`, checks t
 - **Best Practices**: Suggest improvements
 - **Cost Impact**: Estimates cost changes and provides optimization recommendations
 - **Security Analysis**: Comprehensive security assessments including IAM, encryption, and access control
+- **Environment detection**: This project does not have the ability to run *terraform plan* against a specific environment (PROD, UAT, Staging, QA, DEV, etc..).
 
 
 ## Limitations
