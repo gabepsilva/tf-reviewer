@@ -22,3 +22,13 @@ output "private_bucket_arn" {
   description = "ARN of the tf-reviewer private S3 bucket"
   value       = module.private_bucket.bucket_arn
 }
+
+output "extra_private_bucket_name" {
+  description = "Name of the hand-rolled extra private S3 bucket"
+  value       = aws_s3_bucket.extra_private.bucket
+}
+
+output "extra_private_bucket_arn" {
+  description = "ARN of the hand-rolled extra private S3 bucket"
+  value       = aws_s3_bucket.extra_private.arn
+}

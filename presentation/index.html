@@ -1,0 +1,796 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TF Reviewer, Gabriel</title>
+<style>
+  :root {
+    --bg: #0e1116;
+    --panel: #161b22;
+    --line: #2a323d;
+    --fg: #e6edf3;
+    --muted: #93a1b1;
+    --accent: #4285f4;   /* Google Blue */
+    --accent-2: #34a853; /* Google Green */
+    --warn: #fbbc04;     /* Google Yellow */
+    --danger: #ea4335;   /* Google Red */
+    --accent-rgb: 66,133,244; /* --accent as R,G,B for rgba() tints — keep in sync with --accent */
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font: 400 16px/1.6 Roboto, "Segoe UI", Helvetica, Arial, sans-serif;
+    overflow: hidden;
+  }
+
+  /* ===== blueprint background ===== */
+  .bgs { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+  .bg { position: absolute; inset: 0; }
+
+  /* dim dot grid, clipped to inside the blueprint frame */
+  .bg-blueprint::before {
+    content: ""; position: absolute; inset: 3.4vh 3vw;
+    background-image: radial-gradient(rgba(120,140,165,.07) 1.1px, transparent 1.3px);
+    background-size: 36px 36px;
+  }
+
+  /* -- Blueprint: crosshair + tick frame -- */
+  .bg-blueprint .frame {
+    position: absolute; inset: 3.4vh 3vw;
+    border: 1px solid rgba(var(--accent-rgb), .16);
+  }
+  .bg-blueprint .cross {
+    position: absolute; width: 20px; height: 20px;
+    color: rgba(var(--accent-rgb), .5);
+  }
+  .bg-blueprint .cross::before,
+  .bg-blueprint .cross::after {
+    content: ""; position: absolute; background: currentColor;
+  }
+  .bg-blueprint .cross::before { left: 9px; top: 0; width: 1px; height: 20px; }
+  .bg-blueprint .cross::after  { top: 9px; left: 0; height: 1px; width: 20px; }
+  .bg-blueprint .cross.tl { left: calc(3vw - 10px);  top: calc(3.4vh - 10px); }
+  .bg-blueprint .cross.tr { right: calc(3vw - 10px); top: calc(3.4vh - 10px); }
+  .bg-blueprint .cross.bl { left: calc(3vw - 10px);  bottom: calc(3.4vh - 10px); }
+  .bg-blueprint .cross.br { right: calc(3vw - 10px); bottom: calc(3.4vh - 10px); }
+  .bg-blueprint .ticks {
+    position: absolute; left: 3vw; right: 3vw; top: 3.4vh; height: 10px;
+    background-image: linear-gradient(90deg, rgba(var(--accent-rgb), .22) 1px, transparent 1px);
+    background-size: 42px 10px;
+  }
+  .bg-blueprint .dwg {
+    position: absolute; left: calc(3vw + 12px); bottom: calc(3.4vh + 10px);
+    font-family: ui-monospace, Menlo, monospace; font-size: 11px; letter-spacing: .2em;
+    color: rgba(var(--accent-rgb), .4); text-transform: uppercase;
+  }
+
+  .deck { height: 100vh; width: 100vw; position: relative; z-index: 1; }
+
+  .slide {
+    position: absolute; inset: 0;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 8vw 6vh;
+    animation: fade .25s ease-out;
+  }
+  .slide.active { display: flex; }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+  /* staggered rise: direct children and the repeatable card/row groups */
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  .slide.active > *,
+  .slide.active .card,
+  .slide.active .finding,
+  .slide.active .file,
+  .slide.active li { animation: rise .5s cubic-bezier(.22,.61,.36,1) backwards; }
+  .slide.active > *:nth-child(1) { animation-delay: .02s; }
+  .slide.active > *:nth-child(2) { animation-delay: .10s; }
+  .slide.active > *:nth-child(3) { animation-delay: .18s; }
+  .slide.active > *:nth-child(4) { animation-delay: .26s; }
+  .slide.active .card:nth-child(1),  .slide.active .finding:nth-child(1),
+  .slide.active .file:nth-child(1),  .slide.active li:nth-child(1) { animation-delay: .16s; }
+  .slide.active .card:nth-child(2),  .slide.active .finding:nth-child(2),
+  .slide.active .file:nth-child(2),  .slide.active li:nth-child(2) { animation-delay: .26s; }
+  .slide.active .card:nth-child(3),  .slide.active .finding:nth-child(3),
+  .slide.active .file:nth-child(3),  .slide.active li:nth-child(3) { animation-delay: .36s; }
+  .slide.active .card:nth-child(4),  .slide.active li:nth-child(4) { animation-delay: .46s; }
+  @media (prefers-reduced-motion: reduce) {
+    .slide.active > *, .slide.active .card, .slide.active .finding,
+    .slide.active .file, .slide.active li { animation: none; }
+  }
+
+  .kicker {
+    display: inline-flex; align-items: center; gap: .7em;
+    font-size: clamp(11px, 1.1vw, 14px);
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 1.6vh;
+  }
+  .kicker::before {
+    content: "";
+    width: 2.2em; height: 2px; border-radius: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  }
+  h1 {
+    font-size: clamp(34px, 5.2vw, 76px);
+    line-height: 1.08;
+    letter-spacing: -.02em;
+    font-weight: 700;
+  }
+  h2 {
+    font-size: clamp(26px, 3.4vw, 48px);
+    line-height: 1.15;
+    letter-spacing: -.015em;
+    font-weight: 650;
+    margin-bottom: 3.5vh;
+  }
+  .sub {
+    font-size: clamp(16px, 1.6vw, 24px);
+    color: var(--muted);
+    margin-top: 2.5vh;
+    max-width: 60ch;
+  }
+  .byline {
+    margin-top: 3.5vh;
+    font-size: clamp(18px, 1.8vw, 26px);
+    font-weight: 600;
+    letter-spacing: .02em;
+  }
+  .byline .name {
+    color: var(--accent-2);
+    font-weight: 700;
+    letter-spacing: .04em;
+  }
+  .byline .role {
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  ul { list-style: none; display: flex; flex-direction: column; gap: 2.2vh; }
+  li {
+    font-size: clamp(16px, 1.75vw, 26px);
+    padding-left: 1.6em;
+    position: relative;
+    max-width: 62ch;
+  }
+  li::before {
+    content: "";
+    position: absolute; left: 0; top: .62em;
+    width: .55em; height: .55em;
+    border-radius: 2px;
+    background: var(--accent);
+  }
+  li b { font-weight: 650; color: #fff; }
+  li span { color: var(--muted); }
+
+  /* Google color cycle: blue → red → yellow → green */
+  li:nth-child(4n+1)::before { background: var(--accent); }
+  li:nth-child(4n+2)::before { background: var(--danger); }
+  li:nth-child(4n+3)::before { background: var(--warn); }
+  li:nth-child(4n+4)::before { background: var(--accent-2); }
+
+  .grid .card:nth-child(4n+1) .n,
+  .findings .finding:nth-child(4n+1) .tag,
+  .flow .step:nth-child(4n+1) .t { color: var(--accent); }
+  .grid .card:nth-child(4n+2) .n,
+  .findings .finding:nth-child(4n+2) .tag,
+  .flow .step:nth-child(4n+2) .t { color: var(--danger); }
+  .grid .card:nth-child(4n+3) .n,
+  .findings .finding:nth-child(4n+3) .tag,
+  .flow .step:nth-child(4n+3) .t { color: var(--warn); }
+  .grid .card:nth-child(4n+4) .n,
+  .findings .finding:nth-child(4n+4) .tag,
+  .flow .step:nth-child(4n+4) .t { color: var(--accent-2); }
+
+  .files .file:nth-child(4n+1) { border-left-color: var(--accent); }
+  .files .file:nth-child(4n+2) { border-left-color: var(--danger); }
+  .files .file:nth-child(4n+3) { border-left-color: var(--warn); }
+  .files .file:nth-child(4n+4) { border-left-color: var(--accent-2); }
+
+  /* problem cards */
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2.4vh 2.2vw; }
+  .card {
+    background: linear-gradient(160deg, #1a212b, var(--panel));
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 2.6vh 1.8vw;
+    position: relative;
+    box-shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 10px 30px -18px rgba(0,0,0,.9);
+  }
+  .card .n {
+    display: inline-block;
+    font-size: clamp(11px, .95vw, 13px);
+    letter-spacing: .12em;
+    font-weight: 800;
+    margin-bottom: 1.1vh;
+    padding: .25em .7em;
+    border-radius: 999px;
+    background: currentColor;           /* pill fill = text colour (set per-card below) */
+    color: var(--accent);               /* default; .card:nth-child rules override */
+    -webkit-text-fill-color: var(--bg); /* dark number on the coloured pill */
+  }
+  .card h3 {
+    font-size: clamp(17px, 1.7vw, 25px);
+    font-weight: 650;
+    margin-bottom: .9vh;
+  }
+  .card p {
+    font-size: clamp(13px, 1.15vw, 17px);
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* pipeline */
+  .flow {
+    display: flex; align-items: stretch; gap: 0;
+    flex-wrap: wrap;
+    margin-top: 1vh;
+  }
+  .step {
+    flex: 1 1 0;
+    min-width: 110px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-right: none;
+    padding: 2.4vh 1vw;
+    text-align: center;
+  }
+  .step:first-child { border-radius: 10px 0 0 10px; }
+  .step:last-child { border-radius: 0 10px 10px 0; border-right: 1px solid var(--line); }
+  .step.hot {                           /* highlighted pipeline step (Codex) */
+    border-color: var(--accent);
+    background: linear-gradient(160deg, #1c2c47, #152238);
+    box-shadow: 0 0 0 1px var(--accent) inset, 0 0 24px -4px rgba(var(--accent-rgb), .45);
+  }
+  .step .t {
+    font-size: clamp(13px, 1.2vw, 18px);
+    font-weight: 650;
+    margin-bottom: .5vh;
+  }
+  .step .d {
+    font-size: clamp(11px, .95vw, 14px);
+    color: var(--muted);
+  }
+
+  /* code / file blocks */
+  .files { display: flex; flex-direction: column; gap: 1.6vh; }
+  .file {
+    background: linear-gradient(160deg, #1a212b, var(--panel));
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 2vh 1.6vw;
+    box-shadow: 0 10px 30px -20px rgba(0,0,0,.9);
+  }
+  .file code {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: clamp(13px, 1.25vw, 19px);
+    color: var(--accent-2);
+    font-weight: 600;
+  }
+  .file p {
+    font-size: clamp(13px, 1.15vw, 17px);
+    color: var(--muted);
+    margin-top: .7vh;
+    line-height: 1.5;
+  }
+
+  .findings { display: flex; flex-direction: column; gap: 1.8vh; }
+  .finding {
+    display: flex; align-items: baseline; gap: 1vw;
+    background: linear-gradient(160deg, #1a212b, var(--panel));
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 2vh 1.6vw;
+    box-shadow: 0 10px 30px -20px rgba(0,0,0,.9);
+  }
+  .finding .tag {
+    font-family: ui-monospace, Menlo, monospace;
+    font-size: clamp(11px, 1vw, 14px);
+    font-weight: 800;
+    letter-spacing: .06em;
+    color: var(--warn);
+    white-space: nowrap;
+    padding: .3em .75em;
+    border-radius: 6px;
+    background: color-mix(in srgb, currentColor 15%, transparent);
+    border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+  }
+  .finding .txt { font-size: clamp(14px, 1.35vw, 21px); }
+  .finding .txt span { color: var(--muted); display: block; font-size: .82em; margin-top: .3vh; }
+
+  .honest {
+    border-left: 3px solid var(--danger);
+    background: #241816;
+    border-radius: 6px;
+    padding: 2vh 1.6vw;
+    margin-top: 3vh;
+    font-size: clamp(13px, 1.25vw, 19px);
+    color: #e8c4bf;
+    max-width: 70ch;
+  }
+  .honest b { color: var(--danger); }
+
+  /* chrome */
+  .bar {
+    position: fixed; bottom: 0; left: 0; height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--danger), var(--warn), var(--accent-2));
+    background-size: 100vw 3px;
+    box-shadow: 0 0 12px -2px var(--accent);
+    transition: width .35s cubic-bezier(.22,.61,.36,1);
+  }
+  .cue {
+    position: fixed; top: calc(3.4vh + 10px); right: calc(3vw + 12px);
+    font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+    color: #55606d; font-weight: 600;
+  }
+  .cue .blue   { color: var(--accent); }
+  .cue .red    { color: var(--danger); }
+  .cue .yellow { color: var(--warn); }
+  .cue .green  { color: var(--accent-2); }
+
+  /* iPad-style pointer + highlighter overlay */
+  body.mode-highlight { -webkit-user-select: none; user-select: none; }
+  body.mode-highlight, body.mode-highlight * { cursor: none !important; }
+  body.mode-highlight #tool-toggle { cursor: pointer !important; }
+  body.mode-native { cursor: auto; -webkit-user-select: text; user-select: text; }
+  body.mode-native #laser { display: none; }
+  #laser {
+    position: fixed; left: 0; top: 0;
+    z-index: 10002;
+    width: 28px; height: 28px;
+    margin: -14px 0 0 -14px;
+    border-radius: 50%;
+    background: rgba(251, 188, 4, .42);
+    border: 2px solid rgba(251, 188, 4, .75);
+    box-shadow: 0 0 0 1px rgba(0,0,0,.35), 0 0 14px rgba(251, 188, 4, .35);
+    pointer-events: none;
+    transform: translate3d(-100px, -100px, 0);
+    will-change: transform;
+  }
+  #ink, #ink-live {
+    position: fixed; inset: 0;
+    z-index: 9999;
+    pointer-events: none;
+    width: 100%; height: 100%;
+  }
+  #ink-live { z-index: 10000; opacity: .45; }
+  #tool-toggle {
+    position: fixed;
+    right: calc(3vw + 8px);
+    bottom: calc(3.4vh + 14px);
+    z-index: 10003;
+    appearance: none;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(22, 27, 34, .92);
+    color: var(--muted);
+    font: 600 11px/1 Roboto, "Segoe UI", Helvetica, Arial, sans-serif;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    padding: .7em 1em;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    opacity: .12;
+    transition: opacity .2s ease;
+  }
+  #tool-toggle:hover { opacity: 1; color: var(--fg); border-color: #3d4654; }
+  body.mode-highlight #tool-toggle { color: var(--warn); border-color: rgba(251, 188, 4, .45); }
+  @media print {
+    .slide { display: flex; page-break-after: always; height: 100vh; }
+    #laser, #ink, #ink-live, #tool-toggle { display: none !important; }
+    html, body, .deck, .slide { cursor: auto; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bgs" aria-hidden="true">
+  <div class="bg bg-blueprint">
+    <div class="frame"></div>
+    <div class="ticks"></div>
+    <span class="cross tl"></span><span class="cross tr"></span>
+    <span class="cross bl"></span><span class="cross br"></span>
+    <div class="dwg" id="dwg">TF-REVIEWER · REV.1 · SHEET 1/11</div>
+  </div>
+</div>
+
+<div class="deck" id="deck">
+
+  <!-- 1 -->
+  <section class="slide">
+    <div class="kicker">DevOps · Terraform · GitHub Actions</div>
+    <h1>TF&nbsp;Reviewer</h1>
+    <p class="sub">An AI agent that reviews your Terraform pull requests with the plan in hand, against your company's standards.</p>
+    <p class="byline"><span class="name">Gabriel</span><span class="role">, DevOps Engineer</span></p>
+  </section>
+
+  <!-- 2 -->
+  <section class="slide">
+    <div class="kicker">Why</div>
+    <h2>Four problems with Terraform review</h2>
+    <div class="grid">
+      <div class="card">
+        <div class="n">01</div>
+        <h3>Review without a plan</h3>
+        <p>An AI assistant reviewing Terraform usually has no plan output. Without it, the review is guesswork about what actually changes.</p>
+      </div>
+      <div class="card">
+        <div class="n">02</div>
+        <h3>Standards slip through</h3>
+        <p>Approved modules. Required tags. If nobody checks them on every PR, they quietly stop being standards.</p>
+      </div>
+      <div class="card">
+        <div class="n">03</div>
+        <h3>Drift with no story</h3>
+        <p>Terraform tells you drift exists. It doesn't tell you what changed, when, or who did it.</p>
+      </div>
+      <div class="card">
+        <div class="n">04</div>
+        <h3>People are the bottleneck</h3>
+        <p>Senior review time is the scarcest resource. It shouldn't be spent on the small stuff.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section class="slide">
+    <div class="kicker">The idea</div>
+    <h2>Give the agent the plan, the rules,<br>and real credentials</h2>
+    <ul>
+      <li><b>It runs <code>terraform plan</code> itself</b> <span>so the review is based on what will actually change.</span></li>
+      <li><b>It reads your dos and don'ts</b> <span>so your standards become the review checklist.</span></li>
+      <li><b>It can query AWS</b> <span>so drift gets investigated, not just reported.</span></li>
+      <li><b>It comments on the PR in ~2 minutes</b> <span>before a human ever opens it.</span></li>
+    </ul>
+    <p class="sub">Plan and review only. It never applies.</p>
+  </section>
+
+  <!-- 4 -->
+  <section class="slide">
+    <div class="kicker">Scope</div>
+    <h2>What it does <i>not</i> do</h2>
+    <ul>
+      <li><b>Only what's in the prompt.</b> <span>No cost analysis, no deep security scan, and no best-practice sweep unless you ask for it.</span></li>
+      <li><b>Bigger ask, bigger model, bigger bill.</b> <span>Balance cost against the review you actually need.</span></li>
+      <li><b>GitHub only.</b> <span>This is built for GitHub Actions. It won't run elsewhere as-is.</span></li>
+      <li><b>One environment.</b> <span>No dev / UAT / staging / prod selection in this demo.</span></li>
+    </ul>
+  </section>
+
+  <!-- 5 -->
+  <section class="slide">
+    <div class="cue"><span class="green">◀</span> <span class="blue">demo</span> <span class="red">starts</span> <span class="yellow">here</span></div>
+    <div class="kicker">Demo</div>
+    <h2>Two things I've set up</h2>
+    <ul>
+      <li><b>Drift.</b> <span>I changed a tag on a Terraform-managed resource, outside of Terraform.</span></li>
+      <li><b>A rogue bucket.</b> <span>A branch that creates a raw <code>aws_s3_bucket</code> with no company module, which breaks rule #1.</span></li>
+    </ul>
+    <p class="sub">Now let's open the pull request and watch the bot.</p>
+  </section>
+
+  <!-- 6 -->
+  <section class="slide">
+    <div class="cue"><span class="blue">demo</span> <span class="red">ends</span> <span class="green">here</span> <span class="yellow">▶</span></div>
+    <div class="kicker">What the bot found</div>
+    <h2>Three findings, about two minutes</h2>
+    <div class="findings">
+      <div class="finding">
+        <div class="tag">RULE</div>
+        <div class="txt">Resource created outside an approved module
+          <span>Cited the exact rule and the exact file.</span></div>
+      </div>
+      <div class="finding">
+        <div class="tag">LOCK</div>
+        <div class="txt">An issue with the lock file
+          <span>Flagged from the standards doc.</span></div>
+      </div>
+      <div class="finding">
+        <div class="tag">DRIFT</div>
+        <div class="txt">A tag was changed outside Terraform
+          <span>CloudTrail told it <b>what</b> changed, <b>when</b>, and <b>who</b> did it.</span></div>
+      </div>
+    </div>
+    <p class="sub">Three things to fix before a senior engineer ever looks at this.</p>
+  </section>
+
+  <!-- 7 -->
+  <section class="slide">
+    <div class="kicker">Under the hood</div>
+    <h2>Three files. That's the whole thing.</h2>
+    <div class="files">
+      <div class="file">
+        <code>.github/codex/dos-and-donts.md</code>
+        <p>Your company context, not the prompt. Approved modules, required tags (<code>Project</code>, <code>BillingCode</code>), remote state, no laptop applies.</p>
+      </div>
+      <div class="file">
+        <code>.github/codex/prompts/tf-plan-review.md</code>
+        <p>The actual prompt. Read the standards, run the plan, investigate drift, and <b>show the commands you ran</b> so I can reproduce your findings.</p>
+      </div>
+      <div class="file">
+        <code>.github/workflows/tf-codex-review.yml</code>
+        <p>71 lines. Credentials → Terraform setup → backend config → <code>init</code> → Codex → comment on the PR.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8 -->
+  <section class="slide">
+    <div class="kicker">The workflow</div>
+    <h2>71 lines, start to finish</h2>
+    <div class="flow">
+      <div class="step"><div class="t">AWS creds</div><div class="d">keys + region</div></div>
+      <div class="step"><div class="t">Terraform</div><div class="d">setup</div></div>
+      <div class="step"><div class="t">Backend</div><div class="d">backend.hcl + tfvars</div></div>
+      <div class="step"><div class="t">init</div><div class="d">remote state</div></div>
+      <div class="step hot"><div class="t">Codex</div><div class="d">plan · review · investigate</div></div>
+      <div class="step"><div class="t">Comment</div><div class="d">post on the PR</div></div>
+    </div>
+    <ul style="margin-top:4vh;">
+      <li><b>Model: <code>gpt-5.4-mini</code></b> <span>is fine for a prompt this size. With a bigger rulebook use a bigger model, or split it into several smaller prompts.</span></li>
+      <li><b>Triggers on PRs touching <code>terraform/**</code></b> <span>when opened, synchronized, or reopened.</span></li>
+    </ul>
+  </section>
+
+  <!-- 9 -->
+  <section class="slide">
+    <div class="kicker">Secrets</div>
+    <h2>Three secrets, two variables</h2>
+    <ul>
+      <li><b>Secrets</b> <span>are <code>OPENAI_API_KEY</code>, <code>AWS_ACCESS_KEY_ID</code>, and <code>AWS_SECRET_ACCESS_KEY</code>. Add kubectl credentials the same way if you want Kubernetes investigation.</span></li>
+      <li><b>Variables</b> <span>are <code>AWS_REGION</code> and <code>TF_STATE_BUCKET</code>.</span></li>
+    </ul>
+    <div class="honest">
+      <b>Being honest about this:</b> the agent runs with <code>sandbox: danger-full-access</code> and live AWS keys, and that is <i>why</i> drift investigation works. In production I'd use OIDC with a scoped, read-only role instead of long-lived keys. My own don'ts say exactly that.
+    </div>
+  </section>
+
+  <!-- 10 -->
+  <section class="slide">
+    <div class="kicker">Honest limitations</div>
+    <h2>What I'd fix next</h2>
+    <ul>
+      <li><b>Publishing every command.</b> <span>Great for reproducibility. But the agent could one day echo a secret into a public PR comment. Rare, but real.</span></li>
+      <li><b>I don't agree with every finding.</b> <span>The prompt needs tuning. That's the job, not a bug.</span></li>
+      <li><b>Single environment.</b> <span>In production you pick which environment to plan against. This demo doesn't.</span></li>
+      <li><b>Static AWS keys.</b> <span>Should be OIDC with a read-only role.</span></li>
+    </ul>
+  </section>
+
+  <!-- 11 -->
+  <section class="slide">
+    <h1>Thank you</h1>
+    <p class="sub">The plan, your standards, and a first pass at drift waiting for the reviewer before they open the PR.</p>
+    <p class="byline"><span class="name">Gabriel</span><span class="role">, DevOps Engineer</span></p>
+  </section>
+
+</div>
+
+<div class="bar" id="bar"></div>
+<canvas id="ink" aria-hidden="true"></canvas>
+<canvas id="ink-live" aria-hidden="true"></canvas>
+<div id="laser" aria-hidden="true"></div>
+<button type="button" id="tool-toggle" aria-pressed="true">Highlighter</button>
+
+<script>
+  const slides = [...document.querySelectorAll('.slide')];
+  let i = 0;
+  const inkBySlide = slides.map(() => []);
+  function show(n) {
+    const next = Math.max(0, Math.min(slides.length - 1, n));
+    if (drawing) finishStroke();
+    erasing = false;
+    i = next;
+    slides.forEach((s, k) => s.classList.toggle('active', k === i));
+    document.getElementById('bar').style.width = ((i + 1) / slides.length * 100) + '%';
+    const dwg = document.getElementById('dwg');
+    if (dwg) dwg.textContent = 'TF-REVIEWER · REV.1 · SHEET ' + (i + 1) + '/' + slides.length;
+    location.hash = i + 1;
+    points = [];
+    drawing = false;
+    lctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    redrawStrokes();
+  }
+
+  const laser = document.getElementById('laser');
+  const ink = document.getElementById('ink');
+  const live = document.getElementById('ink-live');
+  const ctx = ink.getContext('2d');
+  const lctx = live.getContext('2d');
+  const toggle = document.getElementById('tool-toggle');
+  const INK = '#fbbc04';
+  const WIDTH = 22;
+  let highlightMode = true;
+  let drawing = false;
+  let erasing = false;
+  let points = [];
+
+  document.addEventListener('keydown', e => {
+    if (e.target === toggle) return;
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+      e.preventDefault();
+      undoStroke();
+      return;
+    }
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (['ArrowRight', ' ', 'PageDown', 'n'].includes(e.key)) { e.preventDefault(); show(i + 1); }
+    else if (['ArrowLeft', 'PageUp', 'p'].includes(e.key)) { e.preventDefault(); show(i - 1); }
+    else if (e.key === 'Home') show(0);
+    else if (e.key === 'End') show(slides.length - 1);
+    else if (e.key.toLowerCase() === 'c') clearInk();
+    else if (e.key.toLowerCase() === 'h') { e.preventDefault(); setMode(!highlightMode); }
+    else if (e.key.toLowerCase() === 'f') {
+      document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+    }
+  });
+
+  document.addEventListener('selectstart', e => { if (highlightMode) e.preventDefault(); });
+  document.addEventListener('dragstart', e => { if (highlightMode) e.preventDefault(); });
+  document.addEventListener('contextmenu', e => { if (highlightMode) e.preventDefault(); });
+
+  function sizeCanvas(el, c) {
+    const dpr = window.devicePixelRatio || 1;
+    el.width = Math.floor(window.innerWidth * dpr);
+    el.height = Math.floor(window.innerHeight * dpr);
+    el.style.width = window.innerWidth + 'px';
+    el.style.height = window.innerHeight + 'px';
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.lineCap = 'round';
+    c.lineJoin = 'round';
+    c.strokeStyle = INK;
+    c.fillStyle = INK;
+    c.lineWidth = WIDTH;
+  }
+  function resizeInk() {
+    sizeCanvas(ink, ctx);
+    sizeCanvas(live, lctx);
+    redrawStrokes();
+  }
+  function clearInk() {
+    inkBySlide[i] = [];
+    points = [];
+    drawing = false;
+    erasing = false;
+    lctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    redrawStrokes();
+  }
+  /* one continuous opaque path; live canvas uses CSS opacity — no overlapping joint dots */
+  function strokePoints(c, pts) {
+    if (!pts.length) return;
+    c.beginPath();
+    if (pts.length === 1) {
+      c.arc(pts[0].x, pts[0].y, WIDTH / 2, 0, Math.PI * 2);
+      c.fill();
+      return;
+    }
+    c.moveTo(pts[0].x, pts[0].y);
+    for (let n = 1; n < pts.length; n++) c.lineTo(pts[n].x, pts[n].y);
+    c.stroke();
+  }
+  function redrawStrokes() {
+    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    ctx.save();
+    ctx.globalAlpha = 0.45;
+    for (const s of inkBySlide[i]) strokePoints(ctx, s);
+    ctx.restore();
+  }
+  function paintLive() {
+    lctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    strokePoints(lctx, points);
+  }
+  function distToSeg(px, py, ax, ay, bx, by) {
+    const dx = bx - ax, dy = by - ay;
+    const len2 = dx * dx + dy * dy;
+    if (!len2) return Math.hypot(px - ax, py - ay);
+    let t = ((px - ax) * dx + (py - ay) * dy) / len2;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+  }
+  function strokeHits(pts, x, y, r) {
+    if (!pts.length) return false;
+    if (pts.length === 1) return Math.hypot(pts[0].x - x, pts[0].y - y) <= r;
+    for (let n = 1; n < pts.length; n++) {
+      if (distToSeg(x, y, pts[n - 1].x, pts[n - 1].y, pts[n].x, pts[n].y) <= r) return true;
+    }
+    return false;
+  }
+  function eraseAt(x, y) {
+    const r = WIDTH * 0.85;
+    const before = inkBySlide[i].length;
+    inkBySlide[i] = inkBySlide[i].filter(s => !strokeHits(s, x, y, r));
+    if (inkBySlide[i].length !== before) redrawStrokes();
+  }
+  function finishStroke() {
+    if (!drawing) return;
+    drawing = false;
+    if (points.length) inkBySlide[i].push(points);
+    lctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    points = [];
+    redrawStrokes();
+  }
+  function undoStroke() {
+    if (drawing) {
+      drawing = false;
+      points = [];
+      lctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      return;
+    }
+    if (!inkBySlide[i].length) return;
+    inkBySlide[i].pop();
+    redrawStrokes();
+  }
+  function setMode(on) {
+    highlightMode = on;
+    drawing = false;
+    erasing = false;
+    points = [];
+    lctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    document.body.classList.toggle('mode-highlight', on);
+    document.body.classList.toggle('mode-native', !on);
+    toggle.textContent = on ? 'Highlighter' : 'Mouse';
+    toggle.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+
+  window.addEventListener('resize', resizeInk);
+  resizeInk();
+  setMode(true);
+
+  document.addEventListener('pointermove', e => {
+    laser.style.transform = 'translate3d(' + e.clientX + 'px, ' + e.clientY + 'px, 0)';
+    if (!highlightMode) return;
+    if (erasing) {
+      eraseAt(e.clientX, e.clientY);
+      return;
+    }
+    if (!drawing) return;
+    const p = points[points.length - 1];
+    if (p && Math.hypot(e.clientX - p.x, e.clientY - p.y) < 2) return;
+    points.push({ x: e.clientX, y: e.clientY });
+    paintLive();
+  });
+  document.addEventListener('pointerdown', e => {
+    if (!highlightMode || e.target.closest('#tool-toggle')) return;
+    if (e.button === 2) {
+      e.preventDefault();
+      if (drawing) finishStroke();
+      erasing = true;
+      eraseAt(e.clientX, e.clientY);
+      return;
+    }
+    if (e.button !== 0) return;
+    e.preventDefault();
+    erasing = false;
+    drawing = true;
+    points = [{ x: e.clientX, y: e.clientY }];
+    laser.style.transform = 'translate3d(' + e.clientX + 'px, ' + e.clientY + 'px, 0)';
+    paintLive();
+  });
+  document.addEventListener('pointerup', e => {
+    if (e.button === 2) erasing = false;
+    else finishStroke();
+  });
+  document.addEventListener('pointercancel', () => {
+    erasing = false;
+    finishStroke();
+  });
+  window.addEventListener('blur', () => {
+    erasing = false;
+    finishStroke();
+  });
+
+  toggle.addEventListener('click', e => {
+    e.stopPropagation();
+    setMode(!highlightMode);
+  });
+
+  show(parseInt(location.hash.slice(1)) - 1 || 0);
+</script>
+</body>
+</html>
